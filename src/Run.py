@@ -41,11 +41,11 @@ def main():
 
     print("Result of the stupid recognizer:")
     # evaluator.printComparison(data.testSet, stupidPred)
-    evaluator.printAccuracy(data.testSet, stupidPred)
+    evaluator.printAccuracy(data.validationSet, stupidPred)
 
     print("\nResult of the Perceptron recognizer:")
     # evaluator.printComparison(data.testSet, perceptronPred)
-    evaluator.printAccuracy(data.testSet, perceptronPred)
+    evaluator.printAccuracy(data.validationSet, perceptronPred)
     
 
 if __name__ == '__main__':

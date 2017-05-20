@@ -6,13 +6,16 @@ import logging
 import numpy as np
 
 from util.activation_functions import Activation
+from util.loss_functions import DifferentError
 from model.classifier import Classifier
 
 # from functools import partial
 
 # from sklearn.decomposition import PCA
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+logging.basicConfig(format='[%(levelname)s]: epoch duration '
+                           '%(asctime)s.%(msecs)03ds; %(message)s',
+                    datefmt="%S",
                     level=logging.DEBUG,
                     stream=sys.stdout)
 
@@ -65,19 +68,32 @@ class Perceptron(Classifier):
             Print logging messages with validation accuracy if verbose is True.
         """
 
-        # first we normalize input vectors through negating class 2
-        # vectors (non 7 features)
-        for i in range(0, len(self.trainingSet.input)):
-            if not self.trainingSet.label[i]:
-                self.trainingSet.input[i] = np.negative(self.trainingSet.input[i])
-        print ("...flipped non 7 feature vectors...")
+        # first we normalize input vectors through negating all feature vectors
+        # corresponding to non 7 features (label == False)
+        normalized_input = [np.negative(self.trainingSet.input[i])
+                            if not self.trainingSet.label[i]
+                            else self.trainingSet.input[i]
+                            for i in range(0, len(self.trainingSet.input))]
 
-        # add threshold weight
-        self.weight = - np.append(self.weight, np.random.rand(1))/100
+        # no threshhold discriminant estimation
+        input = normalized_input
+        # threshhold discriminant estimation:
+        # self.weight = np.append(self.weight, np.random.rand(1))/100
+        # input = map(lambda x: np.append(x, [1]), normalized_input)1
 
-        # then start learning the discriminat weights
-        print("...updating weights:")
-        self.updateWeights(self.trainingSet.input, None, verbose=True)
+        # start learning the discriminat weights
+        error = DifferentError()
+        epoch = 0
+        while epoch < self.epochs:
+            epoch += 1
+            n_err = self.updateWeights(input, error)
+            if verbose:
+                accuracy_string = 'accuracy %(acc)02.02f'\
+                                  % {'acc': 100 * (1.0 - float(n_err) / len(input))}
+                logging.debug("(epoch %(epoch)02d) %(acc)s%%"
+                              %{'epoch':epoch, 'acc': accuracy_string})
+            if n_err == 0:
+                return
 
     def classify(self, testInstance):
         """Classify a single instance.
@@ -91,11 +107,7 @@ class Perceptron(Classifier):
         bool :
             True if the testInstance is recognized as a 7, False otherwise.
         """
-        classification_result = self.fire(np.append(testInstance, [1]))
-        if classification_result > 0:
-            return True
-        else:
-            return False
+        return self.fire(testInstance)
 
     def evaluate(self, test=None):
         """Evaluate a whole dataset.
@@ -116,32 +128,23 @@ class Perceptron(Classifier):
         # set.
         return list(map(self.classify, test))
 
-    def updateWeights(self, input, error, verbose=False):
-        # Write your code to update the weights of the perceptron here
-        epoch = 0
-        while epoch < self.epochs:
-            epoch += 1
-            # the vector to hold - J_p(W), the inverse gradient
-            gradient = np.zeros(self.weight.shape)
+    def updateWeights(self, input, error):
             n_miss = 0
-            for instance in self.trainingSet.input:
-                # dummy input 1 for threshold weight learning
-                if self.fire(np.append(instance, [1])) == 0:
+            i = 0
+            error_gradient = np.zeros(len(input[0]))
+            while i < len(input):
+                instance = input[i]
+                err = error.calculateError(1, self.fire(instance))
+                if err:
                     n_miss += 1
-                    gradient = np.add(
-                        gradient, np.append(instance, [1]))
-
-            if not gradient.any():  # class discriminat line found -> stop
-                print("epoch " + str(epoch) + " validation accuracy:" +
-                      str(1 - np.divide(n_miss, float(len(input)))))
-                break
+                    error_gradient += instance
+                i += 1
+            if not error_gradient.any():
+                return n_miss
             else:
-                if verbose:
-                    print("epoch " + str(epoch) + " validation accuracy:" +
-                          str(1 - np.divide(n_miss, float(len(input)))))
-                    # print(str(n_miss))
-                self.weight = np.add(self.learningRate * gradient, self.weight)
-                # self.weight = np.add(self.learningRate * gradient, self.weight)
+                self.weight = np.add(self.learningRate * error_gradient,
+                                     self.weight)
+            return n_miss
 
     def fire(self, input):
         """Fire the output of the perceptron corresponding to the input """
