@@ -25,6 +25,11 @@ class Error:
         # calculate the error between target and output
         pass
 
+    @abstractmethod
+    def calculateErrorPrime(self, target, output):
+        # calculate output dependent error gradient
+        pass
+
 
 class AbsoluteError(Error):
     """
@@ -61,7 +66,14 @@ class MeanSquaredError(Error):
     def calculateError(self, target, output):
         # Here you have to code the MSE
         # MSE = 1/n*sum (i=1 to n) of (target_i - output_i)^2)
-        pass
+        mse = 1.0 / float(len(target)) * np.sum([pow(target[i] - output[i], 2)
+                            for i in range(0, target.shape[0])])
+        return mse
+
+    def calculateErrorPrime(self, target, output):
+        # calculate output dependent error gradient forall samples in output
+        n = target.shape[0]
+        return map(lambda i: 2.0 / float(n) * (target[i] - output[i]), range(0, n))
 
 
 class SumSquaredError(Error):
@@ -75,8 +87,13 @@ class SumSquaredError(Error):
     def calculateError(self, target, output):
         # Here you have to code the SSE
         # SSE = 1/2*sum (i=1 to n) of (target_i - output_i)^2)
-        pass
+        sse = 0.5 * np.sum([pow(target[i] - output[i], 2)
+                                        for i in range(0, target.shape[0])])
+        return sse
 
+    def calculateErrorPrime(self, target, output):
+        # calculate output dependent error gradient forall samples in output
+        return map(lambda i: target[i] - output[i], range(0, target.shape[0]))
 
 class BinaryCrossEntropyError(Error):
     """
